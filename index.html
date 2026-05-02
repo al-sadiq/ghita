@@ -22,7 +22,6 @@
             font-family: 'Quicksand', sans-serif;
         }
 
-        /* --- BEAUTIFIED BACKGROUND --- */
         #ocean-bg {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -30,7 +29,6 @@
             z-index: -2;
         }
 
-        /* Animated Water Currents */
         .wave {
             position: absolute;
             width: 200%; height: 100%;
@@ -44,7 +42,6 @@
             to { transform: translate(-25%, -10%) rotate(360deg); }
         }
 
-        /* Cinematic Vignette */
         #vignette {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -53,7 +50,6 @@
             z-index: -1;
         }
 
-        /* --- UI ELEMENTS --- */
         #ui-layer {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -119,7 +115,6 @@
 </head>
 <body>
 
-    <!-- Enhanced Background Layers -->
     <div id="ocean-bg">
         <div class="wave"></div>
         <div class="wave" style="animation-duration: 35s; opacity: 0.5;"></div>
@@ -253,9 +248,7 @@
                         ctx.translate(b.position.x, b.position.y);
                         ctx.rotate(b.angle);
                         ctx.shadowBlur = 25; ctx.shadowColor = "rgba(255, 117, 143, 0.8)";
-                        
-                        // Refined Bottle Shape
-                        ctx.beginPath();
+                                                ctx.beginPath();
                         ctx.moveTo(-12, -28); ctx.lineTo(12, -28);
                         ctx.lineTo(12, -18); ctx.bezierCurveTo(22, -8, 22, 28, 12, 34);
                         ctx.lineTo(-12, 34); ctx.bezierCurveTo(-22, 28, -22, -8, -12, -18);
