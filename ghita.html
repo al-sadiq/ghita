@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sea of Messages</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Quicksand:wght@300;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --pink: #ff758f;
+            --gold: #f8edeb;
+            --dark: #05010d;
+            --deep-purple: #1a0b2e;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            background-color: var(--dark);
+            font-family: 'Quicksand', sans-serif;
+        }
+
+        /* --- BEAUTIFIED BACKGROUND --- */
+        #ocean-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);
+            z-index: -2;
+        }
+
+        /* Animated Water Currents */
+        .wave {
+            position: absolute;
+            width: 200%; height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(255, 117, 143, 0.05) 0%, transparent 50%);
+            animation: drift 20s infinite linear;
+            pointer-events: none;
+        }
+
+        @keyframes drift {
+            from { transform: translate(-25%, -10%) rotate(0deg); }
+            to { transform: translate(-25%, -10%) rotate(360deg); }
+        }
+
+        /* Cinematic Vignette */
+        #vignette {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, transparent 30%, rgba(0,0,0,0.8) 100%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* --- UI ELEMENTS --- */
+        #ui-layer {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: var(--dark);
+            z-index: 1000; transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .heart-loader {
+            font-size: 6rem; cursor: pointer; background: none; border: none;
+            filter: drop-shadow(0 0 20px var(--pink));
+            animation: pulse 1.5s infinite;
+            transition: transform 0.3s;
+        }
+
+        .heart-loader:hover { transform: scale(1.1); }
+
+        @keyframes pulse {
+            0% { transform: scale(1); filter: drop-shadow(0 0 10px var(--pink)); }
+            50% { transform: scale(1.15); filter: drop-shadow(0 0 30px var(--pink)); }
+            100% { transform: scale(1); filter: drop-shadow(0 0 10px var(--pink)); }
+        }
+
+        #message-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 1, 13, 0.95); backdrop-filter: blur(25px);
+            display: none; justify-content: center; align-items: center;
+            z-index: 2000; opacity: 0; transition: opacity 0.6s ease;
+        }
+
+        .content-box {
+            width: 85%; max-width: 420px; text-align: center;
+            padding: 40px; border-radius: 30px;
+            border: 1px solid rgba(255, 117, 143, 0.2);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        #text-target {
+            font-family: 'Dancing Script', cursive;
+            font-size: 2.4rem; color: var(--pink);
+            margin-bottom: 35px; line-height: 1.4;
+            text-shadow: 0 0 15px rgba(255, 117, 143, 0.3);
+        }
+
+        .btn-close {
+            padding: 14px 40px; border: 1px solid var(--pink);
+            background: transparent; color: white; border-radius: 50px;
+            cursor: pointer; transition: 0.4s; letter-spacing: 2px; font-weight: 600;
+        }
+
+        .btn-close:hover { background: var(--pink); color: var(--dark); box-shadow: 0 0 20px var(--pink); }
+
+        .dust {
+            position: absolute; background: white; border-radius: 50%;
+            pointer-events: none; opacity: 0.4;
+            animation: float-up var(--duration) infinite linear;
+        }
+
+        @keyframes float-up {
+            from { transform: translateY(100vh); }
+            to { transform: translateY(-10vh); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Enhanced Background Layers -->
+    <div id="ocean-bg">
+        <div class="wave"></div>
+        <div class="wave" style="animation-duration: 35s; opacity: 0.5;"></div>
+    </div>
+    <div id="vignette"></div>
+
+    <div id="ui-layer">
+        <button class="heart-loader" onclick="start()">❤️</button>
+        <h2 style="color: var(--gold); font-weight: 300; letter-spacing: 5px; margin-top: 30px;">OPEN YOUR HEART, GHITA</h2>
+    </div>
+
+    <div id="message-overlay">
+        <div class="content-box">
+            <div id="text-target"></div>
+            <button class="btn-close" onclick="closeMsg()">CONTINUE</button>
+        </div>
+    </div>
+
+    <script>
+        const compliments = [
+            "Your smile is my favorite sight.",
+            "I love how your eyes glow when you're happy.",
+            "You are the strongest person I know.",
+            "Every second with you is a gift.",
+            "You make simple moments feel magical.",
+            "I love the way you care for others.",
+            "You are my absolute favorite thought.",
+            "I'm so proud of who you are.",
+            "I love you more than words can say."
+        ];
+
+        const { Engine, Render, Runner, World, Bodies, MouseConstraint, Mouse, Events, Body } = Matter;
+        let engine, world, render, currentBottle = null;
+        const bottleRegistry = new Map();
+
+        function start() {
+            createBioluminescence(); // Add floating particles
+            document.getElementById('ui-layer').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('ui-layer').style.display = 'none';
+                init();
+            }, 1200);
+        }
+
+        function createBioluminescence() {
+            for(let i=0; i<40; i++) {
+                const dust = document.createElement('div');
+                dust.className = 'dust';
+                const size = Math.random() * 3 + 1;
+                dust.style.width = size + 'px';
+                dust.style.height = size + 'px';
+                dust.style.left = Math.random() * 100 + '%';
+                dust.style.setProperty('--duration', (Math.random() * 10 + 10) + 's');
+                dust.style.opacity = Math.random();
+                document.body.appendChild(dust);
+            }
+        }
+
+        function init() {
+            engine = Engine.create();
+            world = engine.world;
+            engine.gravity.y = 0;
+
+            render = Render.create({
+                element: document.body,
+                engine: engine,
+                options: {
+                    width: window.innerWidth, height: window.innerHeight,
+                    wireframes: false, background: 'transparent'
+                }
+            });
+
+            const wallProps = { isStatic: true, render: { visible: false } };
+            World.add(world, [
+                Bodies.rectangle(window.innerWidth/2, -50, window.innerWidth, 100, wallProps),
+                Bodies.rectangle(window.innerWidth/2, window.innerHeight+50, window.innerWidth, 100, wallProps),
+                Bodies.rectangle(-50, window.innerHeight/2, 100, window.innerHeight, wallProps),
+                Bodies.rectangle(window.innerWidth+50, window.innerHeight/2, 100, window.innerHeight, wallProps)
+            ]);
+
+            compliments.forEach((msg) => {
+                const b = Bodies.rectangle(
+                    Math.random() * window.innerWidth,
+                    Math.random() * window.innerHeight,
+                    30, 60, 
+                    { frictionAir: 0.05, restitution: 0.9, render: { visible: false } }
+                );
+                bottleRegistry.set(b.id, msg);
+                World.add(world, b);
+            });
+
+            const mouse = Mouse.create(render.canvas);
+            const mc = MouseConstraint.create(engine, {
+                mouse: mouse,
+                constraint: { stiffness: 0.2, render: { visible: false } }
+            });
+            World.add(world, mc);
+
+            Events.on(mc, 'mousedown', () => {
+                if (mc.body) {
+                    const msg = bottleRegistry.get(mc.body.id);
+                    if (msg) {
+                        currentBottle = mc.body;
+                        showMsg(msg);
+                    }
+                }
+            });
+
+            Events.on(engine, 'beforeUpdate', () => {
+                world.bodies.forEach(b => {
+                    if (bottleRegistry.has(b.id)) {
+                        Body.applyForce(b, b.position, {
+                            x: Math.sin(engine.timing.timestamp * 0.001 + b.id) * 0.00012,
+                            y: Math.cos(engine.timing.timestamp * 0.001 + b.id) * 0.00012
+                        });
+                    }
+                });
+            });
+
+            Render.run(render);
+            Runner.run(Runner.create(), engine);
+            draw();
+        }
+
+        function draw() {
+            Events.on(render, 'afterRender', () => {
+                const ctx = render.context;
+                world.bodies.forEach(b => {
+                    if (bottleRegistry.has(b.id)) {
+                        ctx.save();
+                        ctx.translate(b.position.x, b.position.y);
+                        ctx.rotate(b.angle);
+                        ctx.shadowBlur = 25; ctx.shadowColor = "rgba(255, 117, 143, 0.8)";
+                        
+                        // Refined Bottle Shape
+                        ctx.beginPath();
+                        ctx.moveTo(-12, -28); ctx.lineTo(12, -28);
+                        ctx.lineTo(12, -18); ctx.bezierCurveTo(22, -8, 22, 28, 12, 34);
+                        ctx.lineTo(-12, 34); ctx.bezierCurveTo(-22, 28, -22, -8, -12, -18);
+                        ctx.closePath();
+                        
+                        ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+                        ctx.strokeStyle = "rgba(255, 117, 143, 0.9)";
+                        ctx.lineWidth = 1.5;
+                        ctx.fill(); ctx.stroke();
+
+                        // Inner Scroll Detail
+                        ctx.beginPath();
+                        ctx.rect(-5, -5, 10, 20);
+                        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+                        ctx.fill();
+
+                        ctx.restore();
+                    }
+                });
+            });
+        }
+
+        function showMsg(text) {
+            const el = document.getElementById('message-overlay');
+            document.getElementById('text-target').innerText = text;
+            el.style.display = 'flex';
+            setTimeout(() => el.style.opacity = '1', 10);
+        }
+
+        function closeMsg() {
+            const el = document.getElementById('message-overlay');
+            el.style.opacity = '0';
+            setTimeout(() => {
+                el.style.display = 'none';
+                if (currentBottle) {
+                    bottleRegistry.delete(currentBottle.id);
+                    World.remove(world, currentBottle);
+                    currentBottle = null;
+                    if (bottleRegistry.size === 0) {
+                        document.getElementById('text-target').innerText = "You found every message. I love you endlessly.";
+                        document.querySelector('.btn-close').style.display = 'none';
+                        el.style.display = 'flex';
+                        setTimeout(() => el.style.opacity = '1', 10);
+                    }
+                }
+            }, 400);
+        }
+
+        window.addEventListener('resize', () => {
+            if (render) {
+                render.canvas.width = window.innerWidth;
+                render.canvas.height = window.innerHeight;
+            }
+        });
+    </script>
+</body>
+</html>
